@@ -42,13 +42,31 @@ function App() {
         pick: undefined,
       }));
 
-      ROLES.forEach((role) => {
-        const playersWithRole = innerPlayers.filter(
+      // sort roles from the least popular to the most
+      const getAvailablePlayersForRole = (role) =>
+        innerPlayers.filter((player) => player.roles[role] && !player.pick);
+      const sortRoles = (a, b) =>
+        getAvailablePlayersForRole(a).length -
+        getAvailablePlayersForRole(b).length;
+      let sortedRoles = ROLES.slice().sort(sortRoles);
+
+      while (sortedRoles.length > 0) {
+        const role = sortedRoles[0];
+
+        // choose a player for this role a pick role
+        const playersAgreedRole = innerPlayers.filter(
           (player) => player.roles[role] && !player.pick
         );
-        if (playersWithRole.length <= 0) return;
-        playersWithRole[random(playersWithRole.length - 1)].pick = role;
-      });
+        if (playersAgreedRole.length > 0) {
+          const rIndex = random(playersAgreedRole.length - 1);
+          const pickedPlayer = playersAgreedRole[rIndex];
+
+          pickedPlayer.pick = role;
+        }
+
+        // sort roles once again since some players are not available now
+        sortedRoles = sortedRoles.slice(1).sort(sortRoles);
+      }
 
       setPlayers(innerPlayers);
     },
@@ -58,7 +76,9 @@ function App() {
   const onSubmit = useCallback(
     (e) => {
       e.preventDefault();
-      roll(fromEvent(e).players);
+      const data = fromEvent(e);
+
+      roll(data.players);
     },
     [roll]
   );
@@ -70,32 +90,36 @@ function App() {
   }, []);
 
   return (
-    <form onSubmit={onSubmit}>
-      <table>
-        <thead>
-          <tr>
-            <th>Player</th>
-            {ROLES.map((role) => (
-              <th key={role}>{role}</th>
+    <div>
+      <a href="https://github.com/fabienjuif/lol-pick">Source code</a>
+
+      <form onSubmit={onSubmit}>
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              {ROLES.map((role) => (
+                <th key={role}>{role}</th>
+              ))}
+              <th>Pick</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Player
+                key={index}
+                {...players[index]}
+                formPrefix={`players.${index}.`}
+                onRoleChange={forceSubmit}
+              />
             ))}
-            <th>Pick</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Player
-              key={index}
-              {...players[index]}
-              formPrefix={`players.${index}.`}
-              onRoleChange={forceSubmit}
-            />
-          ))}
-        </tbody>
-      </table>
-      <button type="submit" ref={submitBtn}>
-        roll
-      </button>
-    </form>
+          </tbody>
+        </table>
+        <button type="submit" ref={submitBtn}>
+          roll
+        </button>
+      </form>
+    </div>
   );
 }
 
