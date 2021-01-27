@@ -1,9 +1,9 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { useLocalStorage } from "react-use";
 import { random } from "lodash";
 import { fromEvent } from "from-form-submit";
 
-const ROLES = ["top", "jungle", "mid", "adc", "support"];
+const ROLES = ["Top", "Jungle", "Mid", "Bottom", "Support"];
 
 const getRoleValue = (roles, role) => {
   if (!roles) return true;
@@ -35,8 +35,11 @@ const Player = ({ name, roles, pick, formPrefix, onRoleChange }) => {
 function App() {
   const [players = [], setPlayers] = useLocalStorage("players");
 
+  const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+  const clipboardTimer = useRef();
+
   const roll = useCallback(
-    (players) => {
+    async (players) => {
       const innerPlayers = players.map((player) => ({
         ...player,
         pick: undefined,
@@ -69,9 +72,39 @@ function App() {
       }
 
       setPlayers(innerPlayers);
+
+      // copy result to clipboard
+      if (clipboardTimer.current) {
+        clearTimeout(clipboardTimer.current);
+      }
+      const roleMaxLength = ROLES.reduce((acc, role) =>
+        acc > role.length ? acc : role.length
+      );
+      clipboardInput.current.value = ROLES.map(
+        (role) =>
+          `${role.padEnd(roleMaxLength, " ")}: ${
+            innerPlayers.find(({ pick }) => pick === role)?.name || "n/a"
+          }`
+      )
+        .join("\n")
+        .concat("\n\nGenerated with: https://fabienjuif.github.io/lol-pick/");
+      clipboardInput.current.select();
+      document.execCommand("copy");
+      setCopiedToClipboard(true);
+      clipboardTimer.current = setTimeout(() => {
+        setCopiedToClipboard(false);
+      }, 500);
     },
     [setPlayers]
   );
+
+  useEffect(() => {
+    return () => {
+      if (clearTimeout.current) {
+        clearTimeout(clearTimeout.current);
+      }
+    };
+  }, []);
 
   const onSubmit = useCallback(
     (e) => {
@@ -89,9 +122,22 @@ function App() {
     submitBtn.current.click();
   }, []);
 
+  const clipboardInput = useRef(null);
+
   return (
     <div>
       <a href="https://github.com/fabienjuif/lol-pick">Source code</a>
+
+      <textarea
+        style={{
+          opacity: 0,
+          position: "absolute",
+          top: 0,
+          right: 0,
+          pointerEvents: "none",
+        }}
+        ref={clipboardInput}
+      />
 
       <form onSubmit={onSubmit}>
         <table>
@@ -118,6 +164,7 @@ function App() {
         <button type="submit" ref={submitBtn}>
           roll
         </button>
+        {copiedToClipboard && <p>Copied in clipboard!</p>}
       </form>
     </div>
   );
